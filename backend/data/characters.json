@@ -1,0 +1,52 @@
+{
+    "漢": {
+      "meaning": "Han – relating to the Chinese people or the Chinese language.",
+      "synonyms": "漢族, 中國",
+      "antonyms": "N/A",
+      "grammar": "Used as an adjective (e.g. 漢語 means Chinese language).",
+      "pronunciation": "hàn",
+      "audio": "/api/assets/audio/han.mp3",
+      "tutorial": "/api/assets/tutorials/han.gif",
+      "examples": [
+        "漢字 - Chinese characters",
+        "漢語 - Chinese language"
+      ],
+      "idealStrokes": [
+        [ {"x": 50, "y":50}, {"x": 100, "y":50}, {"x": 100, "y":100} ],
+        [ {"x": 60, "y":60}, {"x": 110, "y":60}, {"x": 110, "y":110} ]
+      ]
+    },
+    "字": {
+      "meaning": "Character – a written symbol or letter.",
+      "synonyms": "文字, 符號",
+      "antonyms": "N/A",
+      "grammar": "Noun (e.g. 漢字 means Chinese characters).",
+      "pronunciation": "zì",
+      "audio": "/api/assets/audio/zi.mp3",
+      "tutorial": "/api/assets/tutorials/zi.gif",
+      "examples": [
+        "漢字 - Chinese characters",
+        "日文字 - Japanese characters"
+      ],
+      "idealStrokes": [
+        [ {"x": 70, "y":70}, {"x": 120, "y":70}, {"x": 120, "y":120} ]
+      ]
+    },
+    "語": {
+      "meaning": "Language or speech.",
+      "synonyms": "言語, 語言",
+      "antonyms": "N/A",
+      "grammar": "Used as a noun (e.g. 英語 means English language).",
+      "pronunciation": "yǔ",
+      "audio": "/api/assets/audio/yu.mp3",
+      "tutorial": "/api/assets/tutorials/yu.gif",
+      "examples": [
+        "漢語 - Chinese language",
+        "英語 - English language"
+      ],
+      "idealStrokes": [
+        [ {"x": 80, "y":80}, {"x": 130, "y":80}, {"x": 130, "y":130} ]
+      ]
+    }
+  }
+  

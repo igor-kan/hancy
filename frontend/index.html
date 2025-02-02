@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Chinese/Japanese Character Input Application</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #f5f5f5;
+    }
+    h1, h2 {
+      color: #333;
+    }
+    .input-area {
+      margin-bottom: 20px;
+      padding: 10px;
+      background: #fff;
+      border: 1px solid #ccc;
+    }
+    #input-methods label {
+      margin-right: 20px;
+      font-weight: bold;
+    }
+    canvas {
+      background-color: #fff;
+      display: block;
+      margin-bottom: 10px;
+    }
+    #candidate-options ul {
+      padding: 0;
+      list-style: none;
+    }
+    #candidate-options li {
+      padding: 8px 12px;
+      border: 1px solid #ccc;
+      background: #eaeaea;
+      margin: 5px;
+      display: inline-block;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    #candidate-options li:hover {
+      background: #d0eaff;
+    }
+    #character-details p {
+      margin: 5px 0;
+    }
+    #strokeTutorial img {
+      max-width: 200px;
+      display: block;
+    }
+    button {
+      margin-right: 10px;
+      padding: 5px 10px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>Chinese/Japanese Character Input Application</h1>
+
+  <!-- Input Method Selector -->
+  <div id="input-methods" class="input-area">
+    <strong>Select Input Method:</strong><br>
+    <label>
+      <input type="radio" name="inputMethod" value="draw" checked> Hand Draw
+    </label>
+    <label>
+      <input type="radio" name="inputMethod" value="fourCorner"> 4-Corner
+    </label>
+    <label>
+      <input type="radio" name="inputMethod" value="multiradical"> Multi-Radical
+    </label>
+    <label>
+      <input type="radio" name="inputMethod" value="keyboard"> Keyboard
+    </label>
+  </div>
+
+  <!-- Hand-Draw Input Area -->
+  <div id="draw-area" class="input-area">
+    <p><strong>Draw your character:</strong></p>
+    <canvas id="drawingCanvas" width="400" height="400" style="border:1px solid #000;"></canvas>
+    <button id="clearCanvas">Clear Drawing</button>
+    <button id="submitDrawing">Submit Drawing</button>
+  </div>
+
+  <!-- 4-Corner Input Area -->
+  <div id="fourCorner-area" class="input-area" style="display: none;">
+    <p><strong>4-Corner Input:</strong> Enter the 4-digit code (e.g. 1234):</p>
+    <input type="text" id="fourCornerInput" placeholder="e.g., 1234">
+    <button id="submitFourCorner">Submit 4-Corner Code</button>
+  </div>
+
+  <!-- Multi-Radical Input Area -->
+  <div id="multiradical-area" class="input-area" style="display: none;">
+    <p><strong>Multi-Radical Input:</strong> Select a radical:</p>
+    <select id="radicalSelect">
+      <option value="radical1">Radical 1</option>
+      <option value="radical2">Radical 2</option>
+      <!-- Add more radicals as needed -->
+    </select>
+    <button id="submitMultiRadical">Submit Radical</button>
+  </div>
+
+  <!-- Keyboard Input Area -->
+  <div id="keyboard-area" class="input-area" style="display: none;">
+    <p><strong>Keyboard Input:</strong> Type the character:</p>
+    <input type="text" id="keyboardInput" placeholder="Type character here">
+    <button id="submitKeyboard">Submit Character</button>
+  </div>
+
+  <!-- Candidate Characters List -->
+  <div id="candidate-options" class="input-area">
+    <h2>Candidate Characters</h2>
+    <ul id="candidatesList">
+      <!-- Candidates will be generated here -->
+    </ul>
+  </div>
+
+  <!-- Character Details Section -->
+  <div id="character-details" class="input-area">
+    <h2>Character Details</h2>
+    <p id="meaning"><em>Meaning will appear here.</em></p>
+    <p id="synonyms"><em>Synonyms will appear here.</em></p>
+    <p id="antonyms"><em>Antonyms will appear here.</em></p>
+    <p id="grammar"><em>Grammar usage details will appear here.</em></p>
+    <div id="pronunciation">
+      <p><strong>Pronunciation:</strong></p>
+      <audio id="audioPronunciation" controls></audio>
+    </div>
+    <div id="strokeTutorial">
+      <p><strong>Stroke Order Tutorial:</strong></p>
+      <img id="strokeTutorialGif" src="" alt="Stroke order tutorial">
+    </div>
+    <div id="exampleSentences">
+      <p><strong>Example Sentences:</strong></p>
+      <ul id="exampleList">
+        <!-- Example sentences will be added here -->
+      </ul>
+    </div>
+  </div>
+
+  <!-- Stroke Replay Canvas -->
+  <div id="strokeReplay" class="input-area">
+    <h2>Stroke Replay</h2>
+    <canvas id="replayCanvas" width="400" height="400" style="border:1px solid #000;"></canvas>
+  </div>
+
+  <script>
+    // URL of the backend server (adjust if your backend runs elsewhere)
+    const BACKEND_URL = "http://localhost:3000";
+
+    /*****************************************************************
+     * Global Variables and Canvas Setup
+     *****************************************************************/
+    const drawingCanvas = document.getElementById('drawingCanvas');
+    const replayCanvas  = document.getElementById('replayCanvas');
+    const ctx         = drawingCanvas.getContext('2d');
+    const replayCtx   = replayCanvas.getContext('2d');
+    let drawing       = false;
+    let strokes       = [];  // Array to store each stroke (as an array of points)
+    let currentStroke = [];
+
+    // Helper: Get mouse or touch coordinates relative to a canvas.
+    function getCanvasPos(canvas, evt) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: evt.clientX ? evt.clientX - rect.left : evt.touches[0].clientX - rect.left,
+        y: evt.clientY ? evt.clientY - rect.top : evt.touches[0].clientY - rect.top
+      };
+    }
+
+    /*****************************************************************
+     * Drawing Event Listeners for Hand-Draw Mode
+     *****************************************************************/
+    drawingCanvas.addEventListener('mousedown', (evt) => {
+      drawing = true;
+      currentStroke = [];
+      const pos = getCanvasPos(drawingCanvas, evt);
+      currentStroke.push(pos);
+      ctx.beginPath();
+      ctx.moveTo(pos.x, pos.y);
+    });
+    drawingCanvas.addEventListener('mousemove', (evt) => {
+      if (!drawing) return;
+      const pos = getCanvasPos(drawingCanvas, evt);
+      currentStroke.push(pos);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.strokeStyle = 'black';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    });
+    drawingCanvas.addEventListener('mouseup', (evt) => {
+      if (!drawing) return;
+      drawing = false;
+      strokes.push(currentStroke);
+    });
+    // Touch support for mobile devices:
+    drawingCanvas.addEventListener('touchstart', (evt) => {
+      evt.preventDefault();
+      drawing = true;
+      currentStroke = [];
+      const pos = getCanvasPos(drawingCanvas, evt);
+      currentStroke.push(pos);
+      ctx.beginPath();
+      ctx.moveTo(pos.x, pos.y);
+    });
+    drawingCanvas.addEventListener('touchmove', (evt) => {
+      evt.preventDefault();
+      if (!drawing) return;
+      const pos = getCanvasPos(drawingCanvas, evt);
+      currentStroke.push(pos);
+      ctx.lineTo(pos.x, pos.y);
+      ctx.strokeStyle = 'black';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    });
+    drawingCanvas.addEventListener('touchend', (evt) => {
+      evt.preventDefault();
+      if (!drawing) return;
+      drawing = false;
+      strokes.push(currentStroke);
+    });
+    // Clear drawing
+    document.getElementById('clearCanvas').addEventListener('click', () => {
+      ctx.clearRect(0, 0, drawingCanvas.width, drawingCanvas.height);
+      strokes = [];
+    });
+
+    /*****************************************************************
+     * Input Method Switching
+     *****************************************************************/
+    const inputMethods = document.getElementsByName('inputMethod');
+    inputMethods.forEach(method => {
+      method.addEventListener('change', () => {
+        const selected = document.querySelector('input[name="inputMethod"]:checked').value;
+        document.getElementById('draw-area').style.display       = (selected === 'draw') ? 'block' : 'none';
+        document.getElementById('fourCorner-area').style.display   = (selected === 'fourCorner') ? 'block' : 'none';
+        document.getElementById('multiradical-area').style.display = (selected === 'multiradical') ? 'block' : 'none';
+        document.getElementById('keyboard-area').style.display     = (selected === 'keyboard') ? 'block' : 'none';
+      });
+    });
+
+    /*****************************************************************
+     * Candidate Generation via Backend API
+     *****************************************************************/
+    function generateCandidates(method, data) {
+      fetch(BACKEND_URL + '/api/recognize', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ method, data })
+      })
+      .then(response => response.json())
+      .then(result => {
+        const candidates = result.candidates;
+        const candidatesList = document.getElementById('candidatesList');
+        candidatesList.innerHTML = "";
+        candidates.forEach(candidate => {
+          const li = document.createElement('li');
+          li.textContent = candidate;
+          li.addEventListener('click', () => {
+            fetchCharacterDetails(candidate);
+            replayStrokes(candidate);
+          });
+          candidatesList.appendChild(li);
+        });
+      })
+      .catch(err => console.error('Error generating candidates:', err));
+    }
+
+    // Submit button event handlers for each input method.
+    document.getElementById('submitDrawing').addEventListener('click', () => {
+      console.log('User drawn strokes:', strokes);
+      generateCandidates('draw', strokes);
+    });
+    document.getElementById('submitFourCorner').addEventListener('click', () => {
+      const code = document.getElementById('fourCornerInput').value;
+      generateCandidates('fourCorner', code);
+    });
+    document.getElementById('submitMultiRadical').addEventListener('click', () => {
+      const radical = document.getElementById('radicalSelect').value;
+      generateCandidates('multiradical', radical);
+    });
+    document.getElementById('submitKeyboard').addEventListener('click', () => {
+      const char = document.getElementById('keyboardInput').value;
+      generateCandidates('keyboard', char);
+    });
+
+    /*****************************************************************
+     * Fetch and Display Character Details from Backend
+     *****************************************************************/
+    function fetchCharacterDetails(character) {
+      fetch(BACKEND_URL + '/api/character/' + encodeURIComponent(character))
+      .then(response => {
+        if (!response.ok) {
+          throw new Error('Character not found');
+        }
+        return response.json();
+      })
+      .then(data => {
+        const charData = data.character;
+        document.getElementById('meaning').textContent   = "Meaning: " + charData.meaning;
+        document.getElementById('synonyms').textContent  = "Synonyms: " + charData.synonyms;
+        document.getElementById('antonyms').textContent  = "Antonyms: " + charData.antonyms;
+        document.getElementById('grammar').textContent   = "Grammar: " + charData.grammar;
+        // Set up audio for pronunciation.
+        const audioEl = document.getElementById('audioPronunciation');
+        if (charData.audio) {
+          audioEl.src = BACKEND_URL + charData.audio;
+          audioEl.style.display = 'block';
+        } else {
+          audioEl.style.display = 'none';
+        }
+        // Set stroke order tutorial.
+        const tutorialEl = document.getElementById('strokeTutorialGif');
+        if (charData.tutorial) {
+          tutorialEl.src = BACKEND_URL + charData.tutorial;
+        } else {
+          tutorialEl.alt = "No tutorial available.";
+        }
+        // Display example sentences.
+        const exampleList = document.getElementById('exampleList');
+        exampleList.innerHTML = "";
+        charData.examples.forEach(example => {
+          const li = document.createElement('li');
+          li.textContent = example;
+          exampleList.appendChild(li);
+        });
+      })
+      .catch(err => console.error('Error fetching character details:', err));
+    }
+
+    /*****************************************************************
+     * Stroke Replay and Error Highlighting
+     *
+     * Replays the user's drawn strokes in blue and (for demonstration)
+     * compares them with ideal strokes from the backend data.
+     *****************************************************************/
+    function replayStrokes(candidate) {
+      replayCtx.clearRect(0, 0, replayCanvas.width, replayCanvas.height);
+      // Fetch ideal strokes for the candidate from the backend.
+      fetch(BACKEND_URL + '/api/character/' + encodeURIComponent(candidate))
+      .then(response => response.json())
+      .then(data => {
+        const idealStrokes = data.character.idealStrokes || [];
+        let strokeIndex = 0;
+        function replayNextStroke() {
+          if (strokeIndex >= strokes.length) return;
+          const stroke = strokes[strokeIndex];
+          replayCtx.beginPath();
+          replayCtx.strokeStyle = 'blue';
+          replayCtx.lineWidth = 2;
+          let pointIndex = 0;
+          function drawNextPoint() {
+            if (pointIndex >= stroke.length) {
+              // Compare with ideal stroke.
+              if (idealStrokes[strokeIndex]) {
+                compareStrokeWithIdeal(stroke, idealStrokes[strokeIndex]);
+              } else if (stroke.length < 5) { // demo: flag short strokes.
+                highlightErrorAt(stroke[0]);
+              }
+              strokeIndex++;
+              setTimeout(replayNextStroke, 500);
+              return;
+            }
+            const pt = stroke[pointIndex];
+            if (pointIndex === 0) {
+              replayCtx.moveTo(pt.x, pt.y);
+            } else {
+              replayCtx.lineTo(pt.x, pt.y);
+            }
+            replayCtx.stroke();
+            pointIndex++;
+            setTimeout(drawNextPoint, 30);
+          }
+          drawNextPoint();
+        }
+        replayNextStroke();
+      })
+      .catch(err => console.error('Error during stroke replay:', err));
+    }
+
+    // Dummy function: compare the user’s stroke with an ideal stroke.
+    function compareStrokeWithIdeal(userStroke, idealStroke) {
+      if (userStroke.length < (idealStroke.length / 2)) {
+        highlightErrorAt(userStroke[0]);
+      }
+    }
+
+    // Highlight an error by drawing a red circle.
+    function highlightErrorAt(point) {
+      replayCtx.beginPath();
+      replayCtx.strokeStyle = 'red';
+      replayCtx.lineWidth = 2;
+      replayCtx.arc(point.x, point.y, 5, 0, 2 * Math.PI);
+      replayCtx.stroke();
+    }
+  </script>
+</body>
+</html>
